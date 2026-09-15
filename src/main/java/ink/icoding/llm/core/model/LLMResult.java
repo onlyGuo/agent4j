@@ -96,6 +96,17 @@ public class LLMResult {
     }
 
     /**
+     * Fail and notify only if this failure wins the terminal state transition.
+     * Late connection failures must not escape an already completed result.
+     * @param t original failure
+     */
+    public void fail(Throwable t) {
+        if (future.completeExceptionally(t) && errorHandler != null) {
+            errorHandler.accept(t instanceof Exception ? (Exception) t : new RuntimeException(t));
+        }
+    }
+
+    /**
      * 获取结果回调处理器.
      *
      * @return 结果处理器

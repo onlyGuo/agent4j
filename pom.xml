@@ -6,7 +6,7 @@
 
     <groupId>ink.icoding.llm</groupId>
     <artifactId>agent4j</artifactId>
-    <version>2.3.7</version>
+    <version>2.3.8</version>
     <name>Agent4J</name>
     <description>A Java-implemented agent development framework</description>
     <url>https://github.com/onlyGuo/agent4j</url>

@@ -17,8 +17,6 @@ import ink.icoding.llm.core.tool.ToolDescriptor;
 import ink.icoding.llm.core.tool.ToolExecutor;
 import ink.icoding.llm.core.tool.ToolStatus;
 import okhttp3.*;
-import okhttp3.internal.http2.ErrorCode;
-import okhttp3.internal.http2.StreamResetException;
 import okhttp3.sse.EventSource;
 import okhttp3.sse.EventSourceListener;
 import okhttp3.sse.EventSources;
@@ -208,6 +206,7 @@ public class AnthropicModel implements LLMModel {
 
                 @Override
                 public void onEvent(EventSource eventSource, String id, String type, String data) {
+                    if (cancelRequested.get()) return;
                     LLMRequestDebugLogger.logStreamEvent(requestDebugEnabled, id, type, data);
                     try {
                         JsonNode json = MAPPER.readTree(data);
@@ -292,22 +291,23 @@ public class AnthropicModel implements LLMModel {
 
                 @Override
                 public void onFailure(EventSource eventSource, Throwable t, Response response) {
-                    if (t instanceof StreamResetException) {
-                        if (isClientCancelledStream(t) && cancelRequested.get()) {
-                            return;
-                        }
-                        finishCurrentTurn();
+                    // This stream was deliberately cancelled after its terminal event.
+                    // Its callbacks may arrive while a subsequent tool turn is running.
+                    if (cancelRequested.get()) {
                         return;
                     }
                     String errMsg = "SSE connection failed";
                     if (response != null) {
-                        errMsg = "HTTP " + response.code();
-                        try {
-                            String errBody = response.body() != null ? response.body().string() : "";
-                            if (!errBody.isEmpty()) errMsg += ": " + errBody;
-                        } catch (Exception ignored) {}
-                    } else if (t != null) {
-                        errMsg = t.getMessage();
+                        errMsg += ": HTTP " + response.code();
+                        if (!response.isSuccessful()) {
+                            try {
+                                String body = response.body() != null ? response.body().string() : "";
+                                if (!body.isEmpty()) errMsg += ": " + body;
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                    if (t != null) {
+                        errMsg += ": " + t;
                     }
                     handleError(result, new RuntimeException(errMsg, t));
                 }
@@ -720,20 +720,11 @@ public class AnthropicModel implements LLMModel {
      * 处理错误, 将异常传递给错误回调处理器.
      */
     private void handleError(LLMResult result, Throwable t) {
-        result.completeExceptionally(t);
-        java.util.function.Consumer<Exception> errorHandler = result.getErrorHandler();
-        if (errorHandler != null) {
-            errorHandler.accept(t instanceof Exception ? (Exception) t : new RuntimeException(t));
-        }
+        result.fail(t);
     }
 
     private static boolean shouldContinueWithToolCalls(String stopReason, List<ToolCallEntry> toolCalls) {
         return "tool_use".equals(stopReason) && toolCalls != null && !toolCalls.isEmpty();
-    }
-
-    private static boolean isClientCancelledStream(Throwable t) {
-        return t instanceof StreamResetException
-                && ((StreamResetException) t).errorCode == ErrorCode.CANCEL;
     }
 
     private boolean isMiMoModel() {

@@ -18,8 +18,6 @@ import ink.icoding.llm.core.tool.ToolExecutor;
 import ink.icoding.llm.core.tool.ToolParam;
 import ink.icoding.llm.core.tool.ToolStatus;
 import okhttp3.*;
-import okhttp3.internal.http2.ErrorCode;
-import okhttp3.internal.http2.StreamResetException;
 import okhttp3.sse.EventSource;
 import okhttp3.sse.EventSourceListener;
 import okhttp3.sse.EventSources;
@@ -187,9 +185,11 @@ public class OpenAIChatModel implements LLMModel {
                 private final StringBuilder thinkBuffer = new StringBuilder();
                 private final List<ToolCallEntry> toolCalls = new ArrayList<>();
                 private int currentToolCallIndex = -1;
+                private volatile boolean cancelRequested;
 
                 @Override
                 public void onEvent(EventSource eventSource, String id, String type, String data) {
+                    if (cancelRequested) return;
                     LLMRequestDebugLogger.logStreamEvent(requestDebugEnabled, id, type, data);
                     if ("[DONE]".equals(data)) return;
                     try {
@@ -277,11 +277,13 @@ public class OpenAIChatModel implements LLMModel {
                         if (finishReason != null) {
                             String reason = finishReason.asText();
                             if ("tool_calls".equals(reason)) {
+                                cancelRequested = true;
                                 eventSource.cancel();
-                        handleToolCallsAndContinue(result, messages, tools, toolExecutor,
-                                requestThinkingEnabled, requestTemperature,
+                                handleToolCallsAndContinue(result, messages, tools, toolExecutor,
+                                        requestThinkingEnabled, requestTemperature,
                                         contentBuffer.toString(), thinkBuffer.toString(), toolCalls);
                             } else if ("stop".equals(reason)) {
+                                cancelRequested = true;
                                 eventSource.cancel();
                                 addFinalAssistantMessage(result, contentBuffer.toString(), thinkBuffer.toString());
                                 result.complete(contentBuffer.toString());
@@ -294,26 +296,25 @@ public class OpenAIChatModel implements LLMModel {
 
                 @Override
                 public void onFailure(EventSource eventSource, Throwable t, Response response) {
-                    String errMsg = "SSE connection failed: ";
+                    // This stream was deliberately cancelled after its terminal event.
+                    // Its callbacks may arrive while a subsequent tool turn is running.
+                    if (cancelRequested) {
+                        return;
+                    }
+                    String errMsg = "SSE connection failed";
                     if (response != null) {
-                        errMsg += "HTTP " + response.code();
-                        try {
-                            String errBody = response.body() != null ? response.body().string() : "";
-                            if (!errBody.isEmpty()) errMsg += ": " + errBody;
-                        } catch (Exception ignored) {}
+                        errMsg += ": HTTP " + response.code();
+                        if (!response.isSuccessful()) {
+                            try {
+                                String body = response.body() != null ? response.body().string() : "";
+                                if (!body.isEmpty()) errMsg += ": " + body;
+                            } catch (Exception ignored) {}
+                        }
                     }
                     if (t != null) {
-                        if (t instanceof StreamResetException){
-                            if (((StreamResetException) t).errorCode == ErrorCode.CANCEL) {
-                                // 连接被正常关闭, 不视为错误
-                                return;
-                            }
-                        }
-                        errMsg += ", " + t.getMessage();
-                        handleError(result, new RuntimeException(errMsg, t));
-                    }else{
-                        handleError(result, new RuntimeException(errMsg));
+                        errMsg += ": " + t;
                     }
+                    handleError(result, new RuntimeException(errMsg, t));
                 }
 
                 @Override
@@ -633,11 +634,7 @@ public class OpenAIChatModel implements LLMModel {
      * @param t      异常
      */
     private void handleError(LLMResult result, Throwable t) {
-        result.completeExceptionally(t);
-        java.util.function.Consumer<Exception> errorHandler = result.getErrorHandler();
-        if (errorHandler != null) {
-            errorHandler.accept(t instanceof Exception ? (Exception) t : new RuntimeException(t));
-        }
+        result.fail(t);
     }
 
     private boolean isMiMoModel() {
