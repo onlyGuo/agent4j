@@ -33,4 +33,14 @@ public class TokenUsage {
     public void setTotalTokens(int totalTokens) { this.totalTokens = Math.max(totalTokens, 0); }
     public int getCachedTokens() { return cachedTokens; }
     public void setCachedTokens(int cachedTokens) { this.cachedTokens = Math.max(cachedTokens, 0); }
+
+    @Override
+    public String toString() {
+        return "TokenUsage{" +
+                "inputTokens=" + inputTokens +
+                ", outputTokens=" + outputTokens +
+                ", totalTokens=" + totalTokens +
+                ", cachedTokens=" + cachedTokens +
+                '}';
+    }
 }

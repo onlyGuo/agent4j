@@ -4,14 +4,49 @@ import ink.icoding.llm.agent.AgentClient;
 import ink.icoding.llm.agent.AgentClientSession;
 import ink.icoding.llm.agent.AgentResultHandler;
 import ink.icoding.llm.agent.Plan;
+import ink.icoding.llm.core.entity.EmbeddingInput;
 import ink.icoding.llm.core.entity.ModelType;
+import ink.icoding.llm.core.model.EmbeddingModel;
+import ink.icoding.llm.core.model.EmbeddingResult;
 import ink.icoding.llm.core.model.LLMModel;
 import ink.icoding.llm.core.tool.ToolDescriptor;
 import ink.icoding.llm.core.tool.ToolStatus;
 import ink.icoding.llm.core.tool.builtin.skill.BuiltInSkills;
+import ink.icoding.llm.core.tool.builtin.skill.FileSystemSkill;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 
 public class MainTest {
+
     public static void main(String[] args) {
+        enbeddingTest();
+    }
+
+
+    public static void enbeddingTest() {
+        String baseURL = System.getenv("ENBEDDING_BASE_URL");
+        String apiKey = System.getenv("ENBMEDDING_API_KEY");
+        String model = System.getenv("ENBEDDING_MODEL");
+        byte[] imageBytes = null;
+
+        try (InputStream inputStream = new FileInputStream("/Users/xiatian/Documents/1.png")){
+            imageBytes = inputStream.readAllBytes();
+        }catch (Exception e){
+            throw new RuntimeException(e);
+        }
+
+        EmbeddingModel embeddingModel = EmbeddingModel.create(ModelType.DashScopeMultimodalEmbedding, baseURL, model, apiKey);
+        EmbeddingResult embed = embeddingModel.embed(EmbeddingInput.create().appendImage(imageBytes, "image/png"));
+
+        System.out.println("Embedding Result: " + embed);
+
+
+        System.out.println("=====================> 结束 <============================");
+    }
+
+    public static void agentTest(String[] args) {
         String baseURL = System.getenv("BASE_URL");
         String apiKey = System.getenv("API_KEY");
         String model = System.getenv("MODEL");
