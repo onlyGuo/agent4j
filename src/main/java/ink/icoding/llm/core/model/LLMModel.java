@@ -80,6 +80,7 @@ public interface LLMModel {
             case OpenAI -> new OpenAIChatModel(baseUrl, modelName, apiKey, requestDebugEnabled, thinkingEnabled, temperature);
             case Anthropic -> new AnthropicModel(baseUrl, modelName, apiKey, requestDebugEnabled, thinkingEnabled, temperature);
             case OpenAIResponse -> new OpenAIResponseModel(baseUrl, modelName, apiKey, requestDebugEnabled, thinkingEnabled, temperature);
+            default -> throw new IllegalArgumentException(type + " is not an LLM model type");
         };
     }
 

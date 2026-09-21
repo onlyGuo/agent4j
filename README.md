@@ -69,7 +69,7 @@ Agent4j is a lightweight Java framework that lets you build **autonomous AI agen
 <dependency>
     <groupId>ink.icoding.llm</groupId>
     <artifactId>agent4j</artifactId>
-    <version>2.3.8</version>
+    <version>2.4.0</version>
 </dependency>
 ```
 
@@ -241,6 +241,32 @@ LLMModel llm = LLMModel.create(ModelType.Anthropic, baseUrl, modelName, apiKey);
 // OpenAI Responses API
 LLMModel llm = LLMModel.create(ModelType.OpenAIResponse, baseUrl, modelName, apiKey);
 ```
+
+### Creating an Embedding Model
+
+```java
+// OpenAI / OpenAI-compatible text embeddings, using /v1/embeddings
+EmbeddingModel textEmbedding = EmbeddingModel.create(
+        ModelType.OpenAIEmbedding, "https://api.openai.com", "text-embedding-3-small", apiKey);
+EmbeddingResult texts = textEmbedding.embedTexts(List.of("first text", "second text"));
+List<Double> vector = texts.getEmbedding().getVector();
+
+// DashScope native multimodal embeddings: text, image URL/data URI, and video URL/data URI
+EmbeddingModel multimodalEmbedding = EmbeddingModel.create(
+        ModelType.DashScopeMultimodalEmbedding,
+        "https://dashscope.aliyuncs.com", "qwen3-vl-embedding", dashScopeApiKey);
+multimodalEmbedding.setFusionEnabled(true); // required for fused vectors with models such as qwen3-vl-embedding
+EmbeddingResult result = multimodalEmbedding.embed(EmbeddingInput.create()
+        .appendText("red running shoe")
+        .appendImage("https://example.com/shoe.png"));
+
+// Local image bytes are converted to a data URI automatically.
+EmbeddingInput imageOnly = EmbeddingInput.create()
+        .appendImage(Files.readAllBytes(Path.of("shoe.png")), "image/png");
+```
+
+`EmbeddingResult` contains `Embedding` values in input order, their type when returned by a multimodal API
+(`text`, `image`, or `fused`), and token usage when available. Use `setDimensions(...)` to request a supported vector size.
 
 ### Building an Agent
 
@@ -469,6 +495,8 @@ AgentClientSession restored = agent.getSessionFromSerialization(json);
 | **Anthropic** | `ModelType.Anthropic` | `/v1/messages` | claude-sonnet-4, claude-opus-4, etc. |
 | **OpenAI Responses** | `ModelType.OpenAIResponse` | `/v1/responses` | gpt-4o, o1, etc. |
 | **OpenAI-compatible** | `ModelType.OpenAI` | Custom baseUrl | DeepSeek, Qwen, GLM, etc. |
+| **OpenAI-compatible Embeddings** | `ModelType.OpenAIEmbedding` | `/v1/embeddings` | text-embedding-3-small, text-embedding-v4, etc. |
+| **DashScope multimodal Embeddings** | `ModelType.DashScopeMultimodalEmbedding` | Native multimodal-embedding API | qwen3-vl-embedding, tongyi-embedding-vision-plus, etc. |
 
 ---
 

@@ -111,6 +111,7 @@ public class ToolDescriptor {
         return switch (modelType) {
             case OpenAI, OpenAIResponse -> toOpenAISchema();
             case Anthropic -> toAnthropicSchema();
+            default -> throw new IllegalArgumentException(modelType + " does not support tool schemas");
         };
     }
 

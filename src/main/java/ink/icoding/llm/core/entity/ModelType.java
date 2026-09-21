@@ -15,5 +15,11 @@ public enum ModelType {
     Anthropic,
 
     /** OpenAI Responses API */
-    OpenAIResponse
+    OpenAIResponse,
+
+    /** OpenAI-compatible text Embeddings API */
+    OpenAIEmbedding,
+
+    /** DashScope native multimodal Embedding API */
+    DashScopeMultimodalEmbedding
 }

@@ -69,7 +69,7 @@ Agent4j 是一个轻量级 Java 框架，让你只需几行代码就能构建**�
 <dependency>
     <groupId>ink.icoding.llm</groupId>
     <artifactId>agent4j</artifactId>
-    <version>2.3.8</version>
+    <version>2.4.0</version>
 </dependency>
 ```
 
@@ -207,6 +207,32 @@ LLMModel llm = LLMModel.create(ModelType.Anthropic, baseUrl, modelName, apiKey);
 // OpenAI Responses API
 LLMModel llm = LLMModel.create(ModelType.OpenAIResponse, baseUrl, modelName, apiKey);
 ```
+
+### 创建 Embedding 模型
+
+```java
+// OpenAI / OpenAI 兼容文本 Embedding，调用 /v1/embeddings
+EmbeddingModel textEmbedding = EmbeddingModel.create(
+        ModelType.OpenAIEmbedding, "https://api.openai.com", "text-embedding-3-small", apiKey);
+EmbeddingResult texts = textEmbedding.embedTexts(List.of("第一段文本", "第二段文本"));
+List<Double> vector = texts.getEmbedding().getVector();
+
+// DashScope 原生多模态 Embedding，支持文本、图片 URL/data URI 与视频 URL/data URI
+EmbeddingModel multimodalEmbedding = EmbeddingModel.create(
+        ModelType.DashScopeMultimodalEmbedding,
+        "https://dashscope.aliyuncs.com", "qwen3-vl-embedding", dashScopeApiKey);
+multimodalEmbedding.setFusionEnabled(true); // qwen3-vl-embedding 等模型生成融合向量时开启
+EmbeddingResult result = multimodalEmbedding.embed(EmbeddingInput.create()
+        .appendText("红色运动鞋")
+        .appendImage("https://example.com/shoe.png"));
+
+// 本地二进制图片会自动转换为 data URI
+EmbeddingInput imageOnly = EmbeddingInput.create()
+        .appendImage(Files.readAllBytes(Path.of("shoe.png")), "image/png");
+```
+
+`EmbeddingResult` 包含按输入顺序返回的 `Embedding` 列表、向量类型（多模态接口可能为
+`text`、`image` 或 `fused`）以及可用时的 token 用量。`setDimensions(...)` 可请求模型支持的目标维度。
 
 ### 构建智能体
 
@@ -435,6 +461,8 @@ AgentClientSession restored = agent.getSessionFromSerialization(json);
 | **Anthropic** | `ModelType.Anthropic` | `/v1/messages` | claude-sonnet-4, claude-opus-4 等 |
 | **OpenAI Responses** | `ModelType.OpenAIResponse` | `/v1/responses` | gpt-4o, o1 等 |
 | **OpenAI 兼容** | `ModelType.OpenAI` | 自定义 baseUrl | DeepSeek、通义千问、智谱 等 |
+| **OpenAI 兼容 Embedding** | `ModelType.OpenAIEmbedding` | `/v1/embeddings` | text-embedding-3-small、text-embedding-v4 等 |
+| **DashScope 多模态 Embedding** | `ModelType.DashScopeMultimodalEmbedding` | 原生 multimodal-embedding API | qwen3-vl-embedding、tongyi-embedding-vision-plus 等 |
 
 ---
 
